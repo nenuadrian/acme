@@ -60,6 +60,10 @@ To get up and running quickly just follow the steps below:
     ```bash
     python3.10 -m venv acme
     source acme/bin/activate
+
+    conda create -n acme python=3.10
+    conda activate acme
+
     pip install --upgrade pip setuptools wheel
     ```
 
