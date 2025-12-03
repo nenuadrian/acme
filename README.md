@@ -1,51 +1,10 @@
-<img src="docs/imgs/acme.png" width="50%">
-
 # Acme: a research framework for reinforcement learning
 
-[![PyPI Python Version][pypi-versions-badge]][pypi]
-[![PyPI version][pypi-badge]][pypi]
-[![acme-tests][tests-badge]][tests]
-[![Documentation Status][rtd-badge]][documentation]
+## CSF
 
-[pypi-versions-badge]: https://img.shields.io/pypi/pyversions/dm-acme
-[pypi-badge]: https://badge.fury.io/py/dm-acme.svg
-[pypi]: https://pypi.org/project/dm-acme/
-[tests-badge]: https://github.com/deepmind/acme/workflows/acme-tests/badge.svg
-[tests]: https://github.com/deepmind/acme/actions/workflows/ci.yml
-[rtd-badge]: https://readthedocs.org/projects/dm-acme/badge/?version=latest
-
-Acme is a library of reinforcement learning (RL) building blocks that strives to
-expose simple, efficient, and readable agents. These agents first and foremost
-serve both as reference implementations as well as providing strong baselines
-for algorithm performance. However, the baseline agents exposed by Acme should
-also provide enough flexibility and simplicity that they can be used as a
-starting block for novel research. Finally, the building blocks of Acme are
-designed in such a way that the agents can be run at multiple scales (e.g.
-single-stream vs. distributed agents).
-
-## Getting started
-
-The quickest way to get started is to take a look at the detailed working code
-examples found in the [examples] subdirectory. These show how to instantiate a
-number of different agents and run them within a variety of environments. See
-the [quickstart notebook][Quickstart] for an even quicker dive into using a
-single agent. Even more detail on the internal construction of an agent can be
-found inside our [tutorial notebook][Tutorial]. Finally, a full description Acme
-and its underlying components can be found by referring to the [documentation].
-More background information and details behind the design decisions can be found
-in our [technical report][Paper].
-
-> NOTE: Acme is first and foremost a framework for RL research written by
-> researchers, for researchers. We use it for our own work on a daily basis. So
-> with that in mind, while we will make every attempt to keep everything in good
-> working order, things may break occasionally. But if so we will make our best
-> effort to fix them as quickly as possible!
-
-[examples]: examples/
-[tutorial]: https://colab.research.google.com/github/deepmind/acme/blob/master/examples/tutorial.ipynb
-[quickstart]: https://colab.research.google.com/github/deepmind/acme/blob/master/examples/quickstart.ipynb
-[documentation]: https://dm-acme.readthedocs.io/
-[paper]: https://arxiv.org/abs/2006.00979
+```
+module load libs/cuda/11.0.3
+```
 
 ## Installation
 
@@ -96,7 +55,57 @@ To get up and running quickly just follow the steps below:
 
 
     pip install ".[testing]"
+
+    pip install "numpy<2"
+    pip install "protobuf<=3.20"
     ```
+
+## Overview
+[![PyPI Python Version][pypi-versions-badge]][pypi]
+[![PyPI version][pypi-badge]][pypi]
+[![acme-tests][tests-badge]][tests]
+[![Documentation Status][rtd-badge]][documentation]
+
+[pypi-versions-badge]: https://img.shields.io/pypi/pyversions/dm-acme
+[pypi-badge]: https://badge.fury.io/py/dm-acme.svg
+[pypi]: https://pypi.org/project/dm-acme/
+[tests-badge]: https://github.com/deepmind/acme/workflows/acme-tests/badge.svg
+[tests]: https://github.com/deepmind/acme/actions/workflows/ci.yml
+[rtd-badge]: https://readthedocs.org/projects/dm-acme/badge/?version=latest
+
+Acme is a library of reinforcement learning (RL) building blocks that strives to
+expose simple, efficient, and readable agents. These agents first and foremost
+serve both as reference implementations as well as providing strong baselines
+for algorithm performance. However, the baseline agents exposed by Acme should
+also provide enough flexibility and simplicity that they can be used as a
+starting block for novel research. Finally, the building blocks of Acme are
+designed in such a way that the agents can be run at multiple scales (e.g.
+single-stream vs. distributed agents).
+
+## Getting started
+
+The quickest way to get started is to take a look at the detailed working code
+examples found in the [examples] subdirectory. These show how to instantiate a
+number of different agents and run them within a variety of environments. See
+the [quickstart notebook][Quickstart] for an even quicker dive into using a
+single agent. Even more detail on the internal construction of an agent can be
+found inside our [tutorial notebook][Tutorial]. Finally, a full description Acme
+and its underlying components can be found by referring to the [documentation].
+More background information and details behind the design decisions can be found
+in our [technical report][Paper].
+
+> NOTE: Acme is first and foremost a framework for RL research written by
+> researchers, for researchers. We use it for our own work on a daily basis. So
+> with that in mind, while we will make every attempt to keep everything in good
+> working order, things may break occasionally. But if so we will make our best
+> effort to fix them as quickly as possible!
+
+[examples]: examples/
+[tutorial]: https://colab.research.google.com/github/deepmind/acme/blob/master/examples/tutorial.ipynb
+[quickstart]: https://colab.research.google.com/github/deepmind/acme/blob/master/examples/quickstart.ipynb
+[documentation]: https://dm-acme.readthedocs.io/
+[paper]: https://arxiv.org/abs/2006.00979
+
 
 ## Citing Acme
 

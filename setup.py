@@ -48,7 +48,7 @@ core_requirements = [
     'absl-py',
     'dm-env',
     'dm-tree',
-    'numpy',
+    'numpy<2',
     'pillow',
     'typing-extensions',
 ]
