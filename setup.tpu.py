@@ -57,7 +57,7 @@ core_requirements = [
 
 jax_requirements = [
     'jax==0.4.3',
-    'jaxlib @ https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.4.3+cuda11.cudnn86-cp310-cp310-manylinux2014_x86_64.whl',
+    'jaxlib==0.4.3',
     'chex',
     'dm-haiku==0.0.9',
     'flax',

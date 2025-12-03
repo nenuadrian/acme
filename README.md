@@ -4,8 +4,7 @@
 
 ```
 module load libs/cuda/11.0.3
-
-
+module load libs/cuDNN/8.6.0
 ```
 
 ## Installation
