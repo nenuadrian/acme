@@ -86,8 +86,11 @@ To get up and running quickly just follow the steps below:
     (where `setup.py` is located):
 
     ```bash
-    pip install ".[jax,tf,testing]"
+    pip install ".[jax,tf]"
     pip install ".[envs]"
+
+
+    pip install ".[testing]"
     ```
 
 ## Citing Acme
