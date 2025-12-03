@@ -58,7 +58,7 @@ To get up and running quickly just follow the steps below:
     just generally make the installation process easier.
 
     ```bash
-    python3 -m venv acme
+    python3.10 -m venv acme
     source acme/bin/activate
     pip install --upgrade pip setuptools wheel
     ```
@@ -86,7 +86,8 @@ To get up and running quickly just follow the steps below:
     (where `setup.py` is located):
 
     ```bash
-    pip install .[jax,tf,testing,envs]
+    pip install ".[jax,tf,testing]"
+    pip install ".[envs]"
     ```
 
 ## Citing Acme
