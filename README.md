@@ -63,6 +63,7 @@ To get up and running quickly just follow the steps below:
 
     conda create -n acme python=3.10
     conda activate acme
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HOME}/.conda/envs/acme/lib"
 
     pip install --upgrade pip setuptools wheel
     ```
