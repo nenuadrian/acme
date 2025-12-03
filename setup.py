@@ -51,6 +51,7 @@ core_requirements = [
     'numpy<2',
     'pillow',
     'typing-extensions',
+    'protobuf<=3.20',
 ]
 
 jax_requirements = [
