@@ -4,6 +4,8 @@
 
 ```
 module load libs/cuda/11.0.3
+
+
 ```
 
 ## Installation
@@ -23,6 +25,8 @@ To get up and running quickly just follow the steps below:
     conda create -n acme python=3.10
     conda activate acme
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HOME}/.conda/envs/acme/lib"
+    export MUJOCO_GL=egl
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/nvidia"
 
     pip install --upgrade pip setuptools wheel
     ```
@@ -58,6 +62,10 @@ To get up and running quickly just follow the steps below:
 
     pip install "numpy<2"
     pip install "protobuf<=3.20"
+    pip install mujoco_py
+    pip install https://storage.googleapis.com/jax-releases/cuda11/jaxlib-0.4.3+cuda11.cudnn82-cp310-cp310-manylinux2014_x86_64.whl
+    pip install jax==0.4.3
+
     ```
 
 ## Overview
