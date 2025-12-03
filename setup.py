@@ -54,7 +54,7 @@ core_requirements = [
 ]
 
 jax_requirements = [
-    'jax==0.4.3',
+    'jax==0.4.30',
     'jaxlib==0.4.30',
     'chex',
     'dm-haiku',
