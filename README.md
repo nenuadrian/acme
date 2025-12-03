@@ -5,6 +5,16 @@
 ```
 module load libs/cuda/11.0.3
 module load libs/cuDNN/8.6.0
+
+cp setup.cuda.py setup.py
+```
+
+## TPU
+
+```
+cp setup.tpu.py setup.py
+
+pip install libtpu
 ```
 
 ## Installation
@@ -18,6 +28,11 @@ To get up and running quickly just follow the steps below:
     just generally make the installation process easier.
 
     ```bash
+    wget https://github.com/google-deepmind/mujoco/releases/download/2.1.0/mujoco210-linux-x86_64.tar.gz
+    mkdir -p $HOME/.mujoco
+    tar -xvf mujoco210-linux-x86_64.tar.gz -C $HOME/.mujoco
+    rm mujoco210-linux-x86_64.tar.gz
+
     python3.10 -m venv acme
     source acme/bin/activate
 
@@ -26,6 +41,7 @@ To get up and running quickly just follow the steps below:
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HOME}/.conda/envs/acme/lib"
     export MUJOCO_GL=egl
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/nvidia"
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/adrian_nenu/.mujoco/mujoco210/bin
 
     pip install --upgrade pip setuptools wheel
     ```
