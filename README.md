@@ -41,7 +41,7 @@ To get up and running quickly just follow the steps below:
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HOME}/.conda/envs/acme/lib"
     export MUJOCO_GL=egl
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/nvidia"
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/adrian_nenu/.mujoco/mujoco210/bin
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.mujoco/mujoco210/bin
 
     pip install --upgrade pip setuptools wheel
     ```
