@@ -42,6 +42,7 @@ To get up and running quickly just follow the steps below:
     export MUJOCO_GL=egl
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/nvidia"
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${HOME}/.mujoco/mujoco210/bin
+    export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
     pip install --upgrade pip setuptools wheel
     ```
