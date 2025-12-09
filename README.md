@@ -12,9 +12,21 @@ cp setup.cuda.py setup.py
 ## TPU
 
 ```
+sudo apt-get install -y \
+    libosmesa6-dev \
+    libgl1-mesa-dev \
+    libglfw3 \
+    patchelf
+
 cp setup.tpu.py setup.py
 
 pip install libtpu
+```
+
+## CPU 
+
+```
+export JAX_PLATFORMS=cpu
 ```
 
 ## Installation
