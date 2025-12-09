@@ -1,31 +1,15 @@
-# Copyright 2018 DeepMind Technologies Limited. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """Launch MPO agent on the control suite via Launchpad."""
 
 import functools
 from typing import List, Optional, Dict, Tuple, Union, Sequence, Callable
 import time
 
-from absl import app
 from absl import flags
 from acme import specs
 from acme import types
 from acme import core
 from acme import adders as acme_adders
 import helpers
-from acme.tf import networks
 from acme.tf import utils as tf2_utils
 import launchpad as lp
 import numpy as np
@@ -41,19 +25,17 @@ from acme.adders import reverb as adders
 from acme.tf import variable_utils as tf2_variable_utils
 from acme.utils import lp_utils
 import dm_env
-import launchpad as lp
 import reverb
 import tensorflow_probability as tfp
 
 
 from typing import Optional, Tuple
 
-# Internal imports.
-
 
 tfd = tfp.distributions
+snt_init = snt.initializers
 
-# Flags which modify the behavior of the launcher.
+
 FLAGS = flags.FLAGS
 _MAX_ACTOR_STEPS = flags.DEFINE_integer(
     "max_actor_steps",
@@ -125,6 +107,13 @@ class FeedForwardActor(core.Actor):
     def update(self, wait: bool = False):
         if self._variable_client:
             self._variable_client.update(wait)
+
+
+class StochasticMeanHead(snt.Module):
+    """Simple sonnet module to produce the mean of a tfp.Distribution."""
+
+    def __call__(self, distribution: tfd.Distribution):
+        return distribution.mean()
 
 
 class DistributedMPO:
@@ -297,7 +286,7 @@ class DistributedMPO:
         behavior_modules = [
             agent_networks.get("observation", tf.identity),
             agent_networks.get("policy"),
-            networks.StochasticSamplingHead(),
+            StochasticSamplingHead(),
         ]
         behavior_network = snt.Sequential(behavior_modules)
 
@@ -358,11 +347,11 @@ class DistributedMPO:
         evaluator_modules = [
             agent_networks.get("observation", tf.identity),
             agent_networks.get("policy"),
-            networks.StochasticMeanHead(),
+            StochasticMeanHead(),
         ]
 
         if isinstance(action_spec, specs.BoundedArray):
-            evaluator_modules += [networks.ClipToSpec(action_spec)]
+            evaluator_modules += [ClipToSpec(action_spec)]
         evaluator_network = snt.Sequential(evaluator_modules)
 
         # Ensure network variables are created.
@@ -1166,6 +1155,203 @@ class MPOLearner(acme.Learner):
         return [tf2_utils.to_numpy(self._variables[name]) for name in names]
 
 
+class StochasticSamplingHead(snt.Module):
+    """Simple sonnet module to sample from a tfp.Distribution."""
+
+    def __call__(self, distribution: tfd.Distribution):
+        return distribution.sample()
+
+
+def _uniform_initializer():
+    return tf.initializers.VarianceScaling(
+        distribution="uniform", mode="fan_out", scale=0.333
+    )
+
+
+class LayerNormMLP(snt.Module):
+    """Simple feedforward MLP torso with initial layer-norm.
+
+    This module is an MLP which uses LayerNorm (with a tanh normalizer) on the
+    first layer and non-linearities (elu) on all but the last remaining layers.
+    """
+
+    def __init__(
+        self,
+        layer_sizes: Sequence[int],
+        w_init: Optional[snt.initializers.Initializer] = None,
+        activation: Callable[[tf.Tensor], tf.Tensor] = tf.nn.elu,
+        activate_final: bool = False,
+    ):
+        """Construct the MLP.
+
+        Args:
+          layer_sizes: a sequence of ints specifying the size of each layer.
+          w_init: initializer for Linear weights.
+          activation: activation function to apply between linear layers. Defaults
+            to ELU. Note! This is different from snt.nets.MLP's default.
+          activate_final: whether or not to use the activation function on the final
+            layer of the neural network.
+        """
+        super().__init__(name="feedforward_mlp_torso")
+
+        self._network = snt.Sequential(
+            [
+                snt.Linear(layer_sizes[0], w_init=w_init or _uniform_initializer()),
+                snt.LayerNorm(
+                    axis=slice(1, None), create_scale=True, create_offset=True
+                ),
+                tf.nn.tanh,
+                snt.nets.MLP(
+                    layer_sizes[1:],
+                    w_init=w_init or _uniform_initializer(),
+                    activation=activation,
+                    activate_final=activate_final,
+                ),
+            ]
+        )
+
+    def __call__(self, observations: types.Nest) -> tf.Tensor:
+        """Forwards the policy network."""
+        return self._network(tf2_utils.batch_concat(observations))
+
+
+class MultivariateNormalDiagHead(snt.Module):
+    """Module that produces a multivariate normal distribution using tfd.Independent or tfd.MultivariateNormalDiag."""
+
+    def __init__(
+        self,
+        num_dimensions: int,
+        init_scale: float = 0.3,
+        min_scale: float = 1e-6,
+        tanh_mean: bool = False,
+        fixed_scale: bool = False,
+        use_tfd_independent: bool = False,
+        w_init: snt_init.Initializer = tf.initializers.VarianceScaling(1e-4),
+        b_init: snt_init.Initializer = tf.initializers.Zeros(),
+    ):
+        """Initialization.
+
+        Args:
+          num_dimensions: Number of dimensions of MVN distribution.
+          init_scale: Initial standard deviation.
+          min_scale: Minimum standard deviation.
+          tanh_mean: Whether to transform the mean (via tanh) before passing it to
+            the distribution.
+          fixed_scale: Whether to use a fixed variance.
+          use_tfd_independent: Whether to use tfd.Independent or
+            tfd.MultivariateNormalDiag class
+          w_init: Initialization for linear layer weights.
+          b_init: Initialization for linear layer biases.
+        """
+        super().__init__(name="MultivariateNormalDiagHead")
+        self._init_scale = init_scale
+        self._min_scale = min_scale
+        self._tanh_mean = tanh_mean
+        self._mean_layer = snt.Linear(num_dimensions, w_init=w_init, b_init=b_init)
+        self._fixed_scale = fixed_scale
+
+        if not fixed_scale:
+            self._scale_layer = snt.Linear(num_dimensions, w_init=w_init, b_init=b_init)
+        self._use_tfd_independent = use_tfd_independent
+
+    def __call__(self, inputs: tf.Tensor) -> tfd.Distribution:
+        zero = tf.constant(0, dtype=inputs.dtype)
+        mean = self._mean_layer(inputs)
+
+        if self._fixed_scale:
+            scale = tf.ones_like(mean) * self._init_scale
+        else:
+            scale = tf.nn.softplus(self._scale_layer(inputs))
+            scale *= self._init_scale / tf.nn.softplus(zero)
+            scale += self._min_scale
+
+        # Maybe transform the mean.
+        if self._tanh_mean:
+            mean = tf.tanh(mean)
+
+        if self._use_tfd_independent:
+            dist = tfd.Independent(tfd.Normal(loc=mean, scale=scale))
+        else:
+            dist = tfd.MultivariateNormalDiag(loc=mean, scale_diag=scale)
+
+        return dist
+
+
+TensorTransformation = Union[snt.Module, Callable[[types.NestedTensor], tf.Tensor]]
+
+
+class NearZeroInitializedLinear(snt.Linear):
+    """Simple linear layer, initialized at near zero weights and zero biases."""
+
+    def __init__(self, output_size: int, scale: float = 1e-4):
+        super().__init__(output_size, w_init=tf.initializers.VarianceScaling(scale))
+
+
+class CriticMultiplexer(snt.Module):
+    """Module connecting a critic torso to (transformed) observations/actions.
+
+    This takes as input a `critic_network`, an `observation_network`, and an
+    `action_network` and returns another network whose outputs are given by
+    `critic_network(observation_network(o), action_network(a))`.
+
+    The observations and actions passed to this module are assumed to have a batch
+    dimension that match.
+
+    Notes:
+    - Either the `observation_` or `action_network` can be `None`, in which case
+      the observation or action, resp., are passed to the critic network as is.
+    - If all `critic_`, `observation_` and `action_network` are `None`, this
+      module reduces to a simple `tf2_utils.batch_concat()`.
+    """
+
+    def __init__(
+        self,
+        critic_network: Optional[TensorTransformation] = None,
+        observation_network: Optional[TensorTransformation] = None,
+        action_network: Optional[TensorTransformation] = None,
+    ):
+        self._critic_network = critic_network
+        self._observation_network = observation_network
+        self._action_network = action_network
+        super().__init__(name="critic_multiplexer")
+
+    def __call__(
+        self, observation: types.NestedTensor, action: types.NestedTensor
+    ) -> tf.Tensor:
+
+        # Maybe transform observations and actions before feeding them on.
+        if self._observation_network:
+            observation = self._observation_network(observation)
+        if self._action_network:
+            action = self._action_network(action)
+
+        if hasattr(observation, "dtype") and hasattr(action, "dtype"):
+            if observation.dtype != action.dtype:
+                # Observation and action must be the same type for concat to work
+                action = tf.cast(action, observation.dtype)
+
+        # Concat observations and actions, with one batch dimension.
+        outputs = tf2_utils.batch_concat([observation, action])
+
+        # Maybe transform output before returning.
+        if self._critic_network:
+            outputs = self._critic_network(outputs)
+
+        return outputs
+
+
+class ClipToSpec(snt.Module):
+    """Sonnet module clipping inputs to within a BoundedArraySpec."""
+
+    def __init__(self, spec: specs.BoundedArray, name: str = "clip_to_spec"):
+        super().__init__(name=name)
+        self._min = spec.minimum
+        self._max = spec.maximum
+
+    def __call__(self, inputs: tf.Tensor) -> tf.Tensor:
+        return tf.clip_by_value(inputs, self._min, self._max)
+
+
 def make_networks(
     action_spec: specs.BoundedArray,
     policy_layer_sizes: Sequence[int] = (256, 256, 256),
@@ -1177,22 +1363,20 @@ def make_networks(
 
     policy_network = snt.Sequential(
         [
-            networks.LayerNormMLP(policy_layer_sizes, activate_final=True),
-            networks.MultivariateNormalDiagHead(
+            LayerNormMLP(policy_layer_sizes, activate_final=True),
+            MultivariateNormalDiagHead(
                 num_dimensions, init_scale=0.7, use_tfd_independent=True
             ),
         ]
     )
 
     # The multiplexer concatenates the (maybe transformed) observations/actions.
-    multiplexer = networks.CriticMultiplexer(
-        action_network=networks.ClipToSpec(action_spec)
-    )
+    multiplexer = CriticMultiplexer(action_network=ClipToSpec(action_spec))
     critic_network = snt.Sequential(
         [
             multiplexer,
-            networks.LayerNormMLP(critic_layer_sizes, activate_final=True),
-            networks.NearZeroInitializedLinear(1),
+            LayerNormMLP(critic_layer_sizes, activate_final=True),
+            NearZeroInitializedLinear(1),
         ]
     )
 
@@ -1203,13 +1387,11 @@ def make_networks(
     }
 
 
-def main(_):
-    # Configure the environment factory with requested task.
+def main():
     make_environment = functools.partial(
         helpers.make_environment, domain_name=_DOMAIN.value, task_name=_TASK.value
     )
 
-    # Construct the program.
     program_builder = DistributedMPO(
         make_environment,
         make_networks,
@@ -1222,4 +1404,4 @@ def main(_):
 
 
 if __name__ == "__main__":
-    app.run(main)
+    main()
