@@ -33,6 +33,7 @@ from typing import Optional, Tuple
 
 
 tfd = tfp.distributions
+snt_init = snt.initializers
 
 
 class FeedForwardActor(core.Actor):
