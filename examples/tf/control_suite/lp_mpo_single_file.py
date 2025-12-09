@@ -1,10 +1,25 @@
+# Copyright 2018 DeepMind Technologies Limited. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Launch MPO agent on the control suite via Launchpad."""
 
 import functools
 from typing import List, Optional, Dict, Tuple, Union, Sequence, Callable
 import time
-import argparse
 
+from absl import app
+from absl import flags
 from acme import specs
 from acme import types
 from acme import core
@@ -26,14 +41,28 @@ from acme.adders import reverb as adders
 from acme.tf import variable_utils as tf2_variable_utils
 from acme.utils import lp_utils
 import dm_env
+import launchpad as lp
 import reverb
 import tensorflow_probability as tfp
 
 
 from typing import Optional, Tuple
 
+# Internal imports.
+
 
 tfd = tfp.distributions
+
+# Flags which modify the behavior of the launcher.
+FLAGS = flags.FLAGS
+_MAX_ACTOR_STEPS = flags.DEFINE_integer(
+    "max_actor_steps",
+    None,
+    "Number of actor steps to run; defaults to None for an endless loop.",
+)
+_DOMAIN = flags.DEFINE_string("domain", "cartpole", "Control suite domain name.")
+_TASK = flags.DEFINE_string("task", "balance", "Control suite task name.")
+_NUM_ACTORS = flags.DEFINE_integer("num_actors", 1, "Number of actors to run.")
 
 
 class FeedForwardActor(core.Actor):
@@ -1174,38 +1203,23 @@ def make_networks(
     }
 
 
-def main(args):
+def main(_):
+    # Configure the environment factory with requested task.
     make_environment = functools.partial(
-        helpers.make_environment, domain_name=args.domain, task_name=args.task
+        helpers.make_environment, domain_name=_DOMAIN.value, task_name=_TASK.value
     )
 
+    # Construct the program.
     program_builder = DistributedMPO(
         make_environment,
         make_networks,
         target_policy_update_period=25,
-        max_actor_steps=args.max_actor_steps,
-        num_actors=args.num_actors,
+        max_actor_steps=_MAX_ACTOR_STEPS.value,
+        num_actors=_NUM_ACTORS.value,
     )
 
     lp.launch(programs=program_builder.build())
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--max_actor_steps",
-        type=int,
-        default=None,
-        help="Number of actor steps to run; defaults to None for an endless loop.",
-    )
-    parser.add_argument(
-        "--domain", type=str, default="cartpole", help="Control suite domain name."
-    )
-    parser.add_argument(
-        "--task", type=str, default="balance", help="Control suite task name."
-    )
-    parser.add_argument(
-        "--num_actors", type=int, default=1, help="Number of actors to run."
-    )
-    args = parser.parse_args()
-    main(args)
+    app.run(main)
