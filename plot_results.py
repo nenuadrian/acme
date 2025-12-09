@@ -5,6 +5,7 @@ python plot_metric_grid.py \
   --file "Enb 1::runs/env1.csv" \
   --file "Enb 2::runs/env2.csv"
 """
+
 import argparse
 import math
 import os
@@ -45,7 +46,7 @@ def main():
         action="append",
         required=True,
         help='CSV file spec in the form "name::path/to/file.csv". '
-             "Can be given multiple times.",
+        "Can be given multiple times.",
     )
     parser.add_argument(
         "--metric",
@@ -65,11 +66,33 @@ def main():
         default=3.0,
         help="Figure height per row in inches.",
     )
+    parser.add_argument(
+        "--smooth-window",
+        type=int,
+        default=10,
+        help=(
+            "Apply centered rolling mean smoothing with this window size (integer > 1). "
+            "0 means no smoothing. Odd window is recommended."
+        ),
+    )
+    parser.add_argument(
+        "--show-raw",
+        action="store_true",
+        help="Overlay raw data (faint) on top of the smoothed line.",
+    )
+    parser.add_argument(
+        "--output",
+        "--out",
+        dest="output",
+        type=str,
+        default="./results/metric_plot.png",
+        help="If set, save the figure to this path instead of (or in addition to) showing it.",
+    )
 
     args = parser.parse_args()
 
     metric = args.metric
-    series_list = []  # list of (name, series)
+    series_list = []  # list of (name, raw_series, smoothed_series)
 
     # ---------- load data ----------
     for file_arg in args.files:
@@ -86,33 +109,42 @@ def main():
                 f"Available columns: {list(df.columns)}"
             )
 
-        s = pd.to_numeric(df[metric], errors="coerce")
-        if s.isna().all():
+        s_raw = pd.to_numeric(df[metric], errors="coerce")
+        if s_raw.isna().all():
             raise ValueError(
                 f'Metric "{metric}" in file "{path}" is not numeric or all NaN.'
             )
 
-        series_list.append((name, s))
+        # apply centered rolling mean if requested
+        if args.smooth_window and args.smooth_window > 1:
+            s_smoothed = s_raw.rolling(
+                window=args.smooth_window, min_periods=1, center=True
+            ).mean()
+        else:
+            s_smoothed = s_raw
+
+        series_list.append((name, s_raw, s_smoothed))
 
     if not series_list:
         raise ValueError("No valid files/metrics to plot.")
 
     # ---------- compute global scales ----------
     # x-axis: we use index (0..len-1). We want same x-range across all.
-    max_len = max(len(s) for _, s in series_list)
+    max_len = max(len(s_sm) for _, _, s_sm in series_list)
     # global x range [0, max_len-1], then add +25% padding on the right
     if max_len > 1:
         x_max_base = max_len - 1
     else:
         x_max_base = 0
     x_range = max(x_max_base, 1)  # avoid zero range
-    x_pad = 0.25 * x_range
+    x_pad = x_range
     x_min_global = -0.5  # small left margin so first point isn't on the border
     x_max_global = x_max_base + x_pad
 
     # y-axis: based on metric values across all files
-    y_min_global = min(s.min() for _, s in series_list)
-    y_max_global = max(s.max() for _, s in series_list)
+    # compute y-limits from the smoothed series (matches plotted lines)
+    y_min_global = min(s_sm.min() for _, _, s_sm in series_list)
+    y_max_global = max(s_sm.max() for _, _, s_sm in series_list)
     y_range = y_max_global - y_min_global
 
     if y_range == 0:
@@ -143,13 +175,23 @@ def main():
         axes = axes.flatten()
 
     # ---------- plot ----------
-    for i, (name, s) in enumerate(series_list):
+    for i, (name, s_raw, s_sm) in enumerate(series_list):
         ax = axes[i]
-        x = s.index
-        ax.plot(x, s.values, marker="o")
+        x = s_sm.index
+        if args.show_raw:
+            ax.plot(x, s_raw.values, marker="o", linestyle=":", alpha=0.4, label="raw")
+        # plot smoothed series
+        ax.plot(
+            x,
+            s_sm.values,
+            marker="o" if args.smooth_window <= 1 else None,
+            label="smoothed",
+        )
         ax.set_title(name)
         ax.set_xlabel("Row index")
         ax.set_ylabel(metric)
+        if args.show_raw or args.smooth_window:
+            ax.legend(fontsize="small")
 
         # apply global limits
         ax.set_xlim(x_min_global, x_max_global)
@@ -160,7 +202,14 @@ def main():
         axes[j].axis("off")
 
     plt.tight_layout()
-    plt.show()
+    if args.output:
+        out_path = args.output
+        out_dir = os.path.dirname(out_path)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        fig.savefig(out_path, bbox_inches="tight", dpi=300)
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":
