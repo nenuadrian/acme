@@ -4,6 +4,7 @@ import functools
 from typing import List, Optional, Dict, Tuple, Union, Sequence, Callable
 import time
 
+from absl import app
 from absl import flags
 from acme import specs
 from acme import types
@@ -1387,7 +1388,7 @@ def make_networks(
     }
 
 
-def main():
+def main(_):
     make_environment = functools.partial(
         helpers.make_environment, domain_name=_DOMAIN.value, task_name=_TASK.value
     )
@@ -1404,4 +1405,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    app.run(main)
