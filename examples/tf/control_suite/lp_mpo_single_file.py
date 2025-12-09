@@ -1151,6 +1151,12 @@ class StochasticSamplingHead(snt.Module):
         return distribution.sample()
 
 
+def _uniform_initializer():
+    return tf.initializers.VarianceScaling(
+        distribution="uniform", mode="fan_out", scale=0.333
+    )
+
+
 class LayerNormMLP(snt.Module):
     """Simple feedforward MLP torso with initial layer-norm.
 
