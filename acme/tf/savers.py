@@ -286,7 +286,7 @@ class Snapshotter:
       *,
       directory: str = '~/acme/',
       time_delta_minutes: float = 30.0,
-      snapshot_ttl_seconds: int | None = _DEFAULT_SNAPSHOT_TTL,
+      snapshot_ttl_seconds = _DEFAULT_SNAPSHOT_TTL,
   ):
     """Builds the saver object.
 
